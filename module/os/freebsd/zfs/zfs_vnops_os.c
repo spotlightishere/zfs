@@ -852,7 +852,7 @@ zfs_lookup(vnode_t *dvp, const char *nm, vnode_t **vpp,
 		/*
 		 * Do we have permission to get into attribute directory?
 		 */
-		error = zfs_zaccess(zp, ACE_EXECUTE, 0, B_FALSE, cr);
+		error = zfs_zaccess(zp, ACE_EXECUTE, 0, B_FALSE, cr, NULL);
 		if (error) {
 			vrele(ZTOV(zp));
 		}
@@ -871,7 +871,8 @@ zfs_lookup(vnode_t *dvp, const char *nm, vnode_t **vpp,
 			cnp->cn_flags &= ~NOEXECCHECK;
 		} else
 #endif
-		if ((error = zfs_zaccess(zdp, ACE_EXECUTE, 0, B_FALSE, cr))) {
+		if ((error = zfs_zaccess(zdp, ACE_EXECUTE, 0, B_FALSE, cr,
+		    NULL))) {
 			ZFS_EXIT(zfsvfs);
 			return (error);
 		}
@@ -1047,6 +1048,7 @@ zfs_lookup(vnode_t *dvp, const char *nm, vnode_t **vpp,
  *		flag	- large file flag [UNUSED].
  *		ct	- caller context
  *		vsecp	- ACL to be set
+ *		mnt_ns	- Unused on FreeBSD
  *
  *	OUT:	vpp	- vnode of created or trunc'd entry.
  *
@@ -1060,7 +1062,7 @@ zfs_lookup(vnode_t *dvp, const char *nm, vnode_t **vpp,
 /* ARGSUSED */
 int
 zfs_create(znode_t *dzp, const char *name, vattr_t *vap, int excl, int mode,
-    znode_t **zpp, cred_t *cr, int flag, vsecattr_t *vsecp)
+    znode_t **zpp, cred_t *cr, int flag, vsecattr_t *vsecp, zuserns_t *mnt_ns)
 {
 	znode_t		*zp;
 	zfsvfs_t	*zfsvfs = dzp->z_zfsvfs;
@@ -1122,7 +1124,7 @@ zfs_create(znode_t *dzp, const char *name, vattr_t *vap, int excl, int mode,
 	 * Create a new file object and update the directory
 	 * to reference it.
 	 */
-	if ((error = zfs_zaccess(dzp, ACE_ADD_FILE, 0, B_FALSE, cr))) {
+	if ((error = zfs_zaccess(dzp, ACE_ADD_FILE, 0, B_FALSE, cr, mnt_ns))) {
 		goto out;
 	}
 
@@ -1138,7 +1140,7 @@ zfs_create(znode_t *dzp, const char *name, vattr_t *vap, int excl, int mode,
 	}
 
 	if ((error = zfs_acl_ids_create(dzp, 0, vap,
-	    cr, vsecp, &acl_ids)) != 0)
+	    cr, vsecp, &acl_ids, NULL)) != 0)
 		goto out;
 
 	if (S_ISREG(vap->va_mode) || S_ISDIR(vap->va_mode))
@@ -1242,7 +1244,7 @@ zfs_remove_(vnode_t *dvp, vnode_t *vp, const char *name, cred_t *cr)
 	xattr_obj = 0;
 	xzp = NULL;
 
-	if ((error = zfs_zaccess_delete(dzp, zp, cr))) {
+	if ((error = zfs_zaccess_delete(dzp, zp, cr, NULL))) {
 		goto out;
 	}
 
@@ -1398,6 +1400,7 @@ zfs_remove(znode_t *dzp, const char *name, cred_t *cr, int flags)
  *		ct	- caller context
  *		flags	- case flags
  *		vsecp	- ACL to be set
+ *		mnt_ns	- Unused on FreeBSD
  *
  *	OUT:	vpp	- vnode of created directory.
  *
@@ -1410,7 +1413,7 @@ zfs_remove(znode_t *dzp, const char *name, cred_t *cr, int flags)
 /*ARGSUSED*/
 int
 zfs_mkdir(znode_t *dzp, const char *dirname, vattr_t *vap, znode_t **zpp,
-    cred_t *cr, int flags, vsecattr_t *vsecp)
+    cred_t *cr, int flags, vsecattr_t *vsecp, zuserns_t *mnt_ns)
 {
 	znode_t		*zp;
 	zfsvfs_t	*zfsvfs = dzp->z_zfsvfs;
@@ -1458,7 +1461,7 @@ zfs_mkdir(znode_t *dzp, const char *dirname, vattr_t *vap, znode_t **zpp,
 	}
 
 	if ((error = zfs_acl_ids_create(dzp, 0, vap, cr,
-	    NULL, &acl_ids)) != 0) {
+	    NULL, &acl_ids, NULL)) != 0) {
 		ZFS_EXIT(zfsvfs);
 		return (error);
 	}
@@ -1479,7 +1482,8 @@ zfs_mkdir(znode_t *dzp, const char *dirname, vattr_t *vap, znode_t **zpp,
 	}
 	ASSERT3P(zp, ==, NULL);
 
-	if ((error = zfs_zaccess(dzp, ACE_ADD_SUBDIRECTORY, 0, B_FALSE, cr))) {
+	if ((error = zfs_zaccess(dzp, ACE_ADD_SUBDIRECTORY, 0, B_FALSE, cr,
+	    mnt_ns))) {
 		zfs_acl_ids_free(&acl_ids);
 		ZFS_EXIT(zfsvfs);
 		return (error);
@@ -1594,7 +1598,7 @@ zfs_rmdir_(vnode_t *dvp, vnode_t *vp, const char *name, cred_t *cr)
 	zilog = zfsvfs->z_log;
 
 
-	if ((error = zfs_zaccess_delete(dzp, zp, cr))) {
+	if ((error = zfs_zaccess_delete(dzp, zp, cr, NULL))) {
 		goto out;
 	}
 
@@ -2045,7 +2049,7 @@ zfs_getattr(vnode_t *vp, vattr_t *vap, int flags, cred_t *cr)
 	if (!(zp->z_pflags & ZFS_ACL_TRIVIAL) &&
 	    (vap->va_uid != crgetuid(cr))) {
 		if ((error = zfs_zaccess(zp, ACE_READ_ATTRIBUTES, 0,
-		    skipaclchk, cr))) {
+		    skipaclchk, cr, NULL))) {
 			ZFS_EXIT(zfsvfs);
 			return (error);
 		}
@@ -2211,7 +2215,7 @@ zfs_getattr(vnode_t *vp, vattr_t *vap, int flags, cred_t *cr)
  *		flags	- ATTR_UTIME set if non-default time values provided.
  *			- ATTR_NOACLCHECK (CIFS context only).
  *		cr	- credentials of caller.
- *		ct	- caller context
+ *		mnt_ns	- Unused on FreeBSD
  *
  *	RETURN:	0 on success, error code on failure.
  *
@@ -2220,7 +2224,7 @@ zfs_getattr(vnode_t *vp, vattr_t *vap, int flags, cred_t *cr)
  */
 /* ARGSUSED */
 int
-zfs_setattr(znode_t *zp, vattr_t *vap, int flags, cred_t *cr)
+zfs_setattr(znode_t *zp, vattr_t *vap, int flags, cred_t *cr, zuserns_t *mnt_ns)
 {
 	vnode_t		*vp = ZTOV(zp);
 	zfsvfs_t	*zfsvfs = zp->z_zfsvfs;
@@ -2392,7 +2396,7 @@ zfs_setattr(znode_t *zp, vattr_t *vap, int flags, cred_t *cr)
 	    XVA_ISSET_REQ(xvap, XAT_CREATETIME) ||
 	    XVA_ISSET_REQ(xvap, XAT_SYSTEM)))) {
 		need_policy = zfs_zaccess(zp, ACE_WRITE_ATTRIBUTES, 0,
-		    skipaclchk, cr);
+		    skipaclchk, cr, mnt_ns);
 	}
 
 	if (mask & (AT_UID|AT_GID)) {
@@ -2429,7 +2433,7 @@ zfs_setattr(znode_t *zp, vattr_t *vap, int flags, cred_t *cr)
 		    ((idmask == AT_UID) && take_owner) ||
 		    ((idmask == AT_GID) && take_group)) {
 			if (zfs_zaccess(zp, ACE_WRITE_OWNER, 0,
-			    skipaclchk, cr) == 0) {
+			    skipaclchk, cr, mnt_ns) == 0) {
 				/*
 				 * Remove setuid/setgid for non-privileged users
 				 */
@@ -2538,7 +2542,8 @@ zfs_setattr(znode_t *zp, vattr_t *vap, int flags, cred_t *cr)
 	}
 
 	if (mask & AT_MODE) {
-		if (zfs_zaccess(zp, ACE_WRITE_ACL, 0, skipaclchk, cr) == 0) {
+		if (zfs_zaccess(zp, ACE_WRITE_ACL, 0, skipaclchk, cr,
+		    mnt_ns) == 0) {
 			err = secpolicy_setid_setsticky_clear(vp, vap,
 			    &oldva, cr);
 			if (err) {
@@ -3322,7 +3327,7 @@ zfs_do_rename_impl(vnode_t *sdvp, vnode_t **svpp, struct componentname *scnp,
 	 * Note that if target and source are the same, this can be
 	 * done in a single check.
 	 */
-	if ((error = zfs_zaccess_rename(sdzp, szp, tdzp, tzp, cr)))
+	if ((error = zfs_zaccess_rename(sdzp, szp, tdzp, tzp, cr, NULL)))
 		goto out;
 
 	if ((*svpp)->v_type == VDIR) {
@@ -3473,7 +3478,7 @@ out:
 
 int
 zfs_rename(znode_t *sdzp, const char *sname, znode_t *tdzp, const char *tname,
-    cred_t *cr, int flags)
+    cred_t *cr, int flags, zuserns_t *mnt_ns)
 {
 	struct componentname scn, tcn;
 	vnode_t *sdvp, *tdvp;
@@ -3518,6 +3523,7 @@ fail:
  *		cr	- credentials of caller.
  *		ct	- caller context
  *		flags	- case flags
+ *		mnt_ns	- Unused on FreeBSD
  *
  *	RETURN:	0 on success, error code on failure.
  *
@@ -3527,7 +3533,7 @@ fail:
 /*ARGSUSED*/
 int
 zfs_symlink(znode_t *dzp, const char *name, vattr_t *vap,
-    const char *link, znode_t **zpp, cred_t *cr, int flags)
+    const char *link, znode_t **zpp, cred_t *cr, int flags, zuserns_t *mnt_ns)
 {
 	znode_t		*zp;
 	dmu_tx_t	*tx;
@@ -3572,7 +3578,7 @@ zfs_symlink(znode_t *dzp, const char *name, vattr_t *vap,
 		return (error);
 	}
 
-	if ((error = zfs_zaccess(dzp, ACE_ADD_FILE, 0, B_FALSE, cr))) {
+	if ((error = zfs_zaccess(dzp, ACE_ADD_FILE, 0, B_FALSE, cr, mnt_ns))) {
 		zfs_acl_ids_free(&acl_ids);
 		ZFS_EXIT(zfsvfs);
 		return (error);
@@ -3785,7 +3791,7 @@ zfs_link(znode_t *tdzp, znode_t *szp, const char *name, cred_t *cr,
 		return (SET_ERROR(EPERM));
 	}
 
-	if ((error = zfs_zaccess(tdzp, ACE_ADD_FILE, 0, B_FALSE, cr))) {
+	if ((error = zfs_zaccess(tdzp, ACE_ADD_FILE, 0, B_FALSE, cr, NULL))) {
 		ZFS_EXIT(zfsvfs);
 		return (error);
 	}
@@ -3886,7 +3892,7 @@ zfs_space(znode_t *zp, int cmd, flock64_t *bfp, int flag,
 	 * On Linux we can get here through truncate_range() which
 	 * operates directly on inodes, so we need to check access rights.
 	 */
-	if ((error = zfs_zaccess(zp, ACE_WRITE_DATA, 0, B_FALSE, cr))) {
+	if ((error = zfs_zaccess(zp, ACE_WRITE_DATA, 0, B_FALSE, cr, NULL))) {
 		ZFS_EXIT(zfsvfs);
 		return (error);
 	}
@@ -4658,8 +4664,8 @@ zfs_freebsd_create(struct vop_create_args *ap)
 	zfsvfs = ap->a_dvp->v_mount->mnt_data;
 	*ap->a_vpp = NULL;
 
-	rc = zfs_create(VTOZ(ap->a_dvp), cnp->cn_nameptr, vap, !EXCL, mode,
-	    &zp, cnp->cn_cred, 0 /* flag */, NULL /* vsecattr */);
+	rc = zfs_create(VTOZ(ap->a_dvp), cnp->cn_nameptr, vap, 0, mode,
+	    &zp, cnp->cn_cred, 0 /* flag */, NULL /* vsecattr */, NULL);
 	if (rc == 0)
 		*ap->a_vpp = ZTOV(zp);
 	if (zfsvfs->z_use_namecache &&
@@ -4713,7 +4719,7 @@ zfs_freebsd_mkdir(struct vop_mkdir_args *ap)
 	*ap->a_vpp = NULL;
 
 	rc = zfs_mkdir(VTOZ(ap->a_dvp), ap->a_cnp->cn_nameptr, vap, &zp,
-	    ap->a_cnp->cn_cred, 0, NULL);
+	    ap->a_cnp->cn_cred, 0, NULL, NULL);
 
 	if (rc == 0)
 		*ap->a_vpp = ZTOV(zp);
@@ -4966,7 +4972,7 @@ zfs_freebsd_setattr(struct vop_setattr_args *ap)
 		xvap.xva_vattr.va_mask |= AT_XVATTR;
 		XVA_SET_REQ(&xvap, XAT_CREATETIME);
 	}
-	return (zfs_setattr(VTOZ(vp), (vattr_t *)&xvap, 0, cred));
+	return (zfs_setattr(VTOZ(vp), (vattr_t *)&xvap, 0, cred, NULL));
 }
 
 #ifndef _SYS_SYSPROTO_H_
@@ -5037,7 +5043,7 @@ zfs_freebsd_symlink(struct vop_symlink_args *ap)
 	*ap->a_vpp = NULL;
 
 	rc = zfs_symlink(VTOZ(ap->a_dvp), cnp->cn_nameptr, vap,
-	    ap->a_target, &zp, cnp->cn_cred, 0 /* flags */);
+	    ap->a_target, &zp, cnp->cn_cred, 0 /* flags */, NULL);
 	if (rc == 0) {
 		*ap->a_vpp = ZTOV(zp);
 		ASSERT_VOP_ELOCKED(ZTOV(zp), __func__);

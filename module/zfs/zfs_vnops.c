@@ -165,9 +165,9 @@ zfs_access(znode_t *zp, int mode, int flag, cred_t *cr)
 	ZFS_VERIFY_ZP(zp);
 
 	if (flag & V_ACE_MASK)
-		error = zfs_zaccess(zp, mode, flag, B_FALSE, cr);
+		error = zfs_zaccess(zp, mode, flag, B_FALSE, cr, NULL);
 	else
-		error = zfs_zaccess_rwx(zp, mode, flag, cr);
+		error = zfs_zaccess_rwx(zp, mode, flag, cr, NULL);
 
 	ZFS_EXIT(zfsvfs);
 	return (error);
