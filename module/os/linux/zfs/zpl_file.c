@@ -710,6 +710,20 @@ zpl_putfolio(struct folio *pp, struct writeback_control *wbc, void *data)
 }
 #endif
 
+static inline int
+zpl_write_cache_pages(struct address_space *mapping,
+    struct writeback_control *wbc, void *data)
+{
+	int result;
+
+#ifdef HAVE_WRITEPAGE_T_FOLIO
+	result = write_cache_pages(mapping, wbc, zpl_putfolio, data);
+#else
+	result = write_cache_pages(mapping, wbc, zpl_putpage, data);
+#endif
+	return (result);
+}
+
 static int
 zpl_writepages(struct address_space *mapping, struct writeback_control *wbc)
 {
@@ -732,11 +746,7 @@ zpl_writepages(struct address_space *mapping, struct writeback_control *wbc)
 	 * and then we commit it all in one go.
 	 */
 	wbc->sync_mode = WB_SYNC_NONE;
-#ifdef HAVE_WRITEPAGE_T_FOLIO
-	result = write_cache_pages(mapping, wbc, zpl_putfolio, mapping);
-#else
-	result = write_cache_pages(mapping, wbc, zpl_putpage, mapping);
-#endif
+	result = zpl_write_cache_pages(mapping, wbc, mapping);
 	if (sync_mode != wbc->sync_mode) {
 		ZPL_ENTER(zfsvfs);
 		ZPL_VERIFY_ZP(zp);
@@ -752,11 +762,7 @@ zpl_writepages(struct address_space *mapping, struct writeback_control *wbc)
 		 * details). That being said, this is a no-op in most cases.
 		 */
 		wbc->sync_mode = sync_mode;
-#ifdef HAVE_WRITEPAGE_T_FOLIO
-		result = write_cache_pages(mapping, wbc, zpl_putfolio, mapping);
-#else
-		result = write_cache_pages(mapping, wbc, zpl_putpage, mapping);
-#endif
+		result = zpl_write_cache_pages(mapping, wbc, mapping);
 	}
 	return (result);
 }
