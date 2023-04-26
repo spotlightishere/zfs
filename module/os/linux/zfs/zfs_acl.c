@@ -1801,7 +1801,7 @@ zfs_acl_inherit(zfsvfs_t *zfsvfs, umode_t va_mode, zfs_acl_t *paclp,
  */
 int
 zfs_acl_ids_create(znode_t *dzp, int flag, vattr_t *vap, cred_t *cr,
-    vsecattr_t *vsecp, zfs_acl_ids_t *acl_ids, zuserns_t *mnt_ns)
+    vsecattr_t *vsecp, zfs_acl_ids_t *acl_ids, zidmap_t *mnt_ns)
 {
 	int		error;
 	zfsvfs_t	*zfsvfs = ZTOZSB(dzp);
@@ -1980,7 +1980,7 @@ zfs_getacl(znode_t *zp, vsecattr_t *vsecp, boolean_t skipaclchk, cred_t *cr)
 		return (SET_ERROR(ENOSYS));
 
 	if ((error = zfs_zaccess(zp, ACE_READ_ACL, 0, skipaclchk, cr,
-	    kcred->user_ns)))
+	    zfs_init_idmap)))
 		return (error);
 
 	mutex_enter(&zp->z_acl_lock);
@@ -2140,7 +2140,7 @@ zfs_setacl(znode_t *zp, vsecattr_t *vsecp, boolean_t skipaclchk, cred_t *cr)
 		return (SET_ERROR(EPERM));
 
 	if ((error = zfs_zaccess(zp, ACE_WRITE_ACL, 0, skipaclchk, cr,
-	    kcred->user_ns)))
+	    zfs_init_idmap)))
 		return (error);
 
 	error = zfs_vsec_2_aclp(zfsvfs, ZTOI(zp)->i_mode, vsecp, cr, &fuidp,
@@ -2286,7 +2286,7 @@ zfs_zaccess_dataset_check(znode_t *zp, uint32_t v4_mode)
  */
 static int
 zfs_zaccess_aces_check(znode_t *zp, uint32_t *working_mode,
-    boolean_t anyaccess, cred_t *cr, zuserns_t *mnt_ns)
+    boolean_t anyaccess, cred_t *cr, zidmap_t *mnt_ns)
 {
 	zfsvfs_t	*zfsvfs = ZTOZSB(zp);
 	zfs_acl_t	*aclp;
@@ -2420,7 +2420,7 @@ zfs_has_access(znode_t *zp, cred_t *cr)
 	uint32_t have = ACE_ALL_PERMS;
 
 	if (zfs_zaccess_aces_check(zp, &have, B_TRUE, cr,
-	    kcred->user_ns) != 0) {
+	    zfs_init_idmap) != 0) {
 		uid_t owner;
 
 		owner = zfs_fuid_map_id(ZTOZSB(zp),
@@ -2451,9 +2451,9 @@ zfs_has_access(znode_t *zp, cred_t *cr)
  */
 static int
 zfs_zaccess_trivial(znode_t *zp, uint32_t *working_mode, cred_t *cr,
-    zuserns_t *mnt_ns)
+    zidmap_t *mnt_ns)
 {
-	int err, mask;
+	int err, mask = 0;
 	int unmapped = 0;
 
 	ASSERT(zp->z_pflags & ZFS_ACL_TRIVIAL);
@@ -2464,11 +2464,10 @@ zfs_zaccess_trivial(znode_t *zp, uint32_t *working_mode, cred_t *cr,
 		return (unmapped ? SET_ERROR(EPERM) : 0);
 	}
 
-#if defined(HAVE_IOPS_PERMISSION_USERNS)
+#if (defined(HAVE_IOPS_PERMISSION_USERNS) || \
+	defined(HAVE_IOPS_PERMISSION_IDMAP))
 	if (mnt_ns)
 		err = generic_permission(mnt_ns, ZTOI(zp), mask);
-	else
-		err = generic_permission(cr->user_ns, ZTOI(zp), mask);
 #else
 	err = generic_permission(ZTOI(zp), mask);
 #endif
@@ -2483,7 +2482,7 @@ zfs_zaccess_trivial(znode_t *zp, uint32_t *working_mode, cred_t *cr,
 
 static int
 zfs_zaccess_common(znode_t *zp, uint32_t v4_mode, uint32_t *working_mode,
-    boolean_t *check_privs, boolean_t skipaclchk, cred_t *cr, zuserns_t *mnt_ns)
+    boolean_t *check_privs, boolean_t skipaclchk, cred_t *cr, zidmap_t *mnt_ns)
 {
 	zfsvfs_t *zfsvfs = ZTOZSB(zp);
 	int err;
@@ -2540,7 +2539,7 @@ zfs_zaccess_common(znode_t *zp, uint32_t v4_mode, uint32_t *working_mode,
 
 static int
 zfs_zaccess_append(znode_t *zp, uint32_t *working_mode, boolean_t *check_privs,
-    cred_t *cr, zuserns_t *mnt_ns)
+    cred_t *cr, zidmap_t *mnt_ns)
 {
 	if (*working_mode != ACE_WRITE_DATA)
 		return (SET_ERROR(EACCES));
@@ -2613,7 +2612,7 @@ slow:
 	DTRACE_PROBE(zfs__fastpath__execute__access__miss);
 	ZFS_ENTER(ZTOZSB(zdp));
 	error = zfs_zaccess(zdp, ACE_EXECUTE, 0, B_FALSE, cr,
-	    kcred->user_ns);
+	    zfs_init_idmap);
 	ZFS_EXIT(ZTOZSB(zdp));
 	return (error);
 }
@@ -2626,7 +2625,7 @@ slow:
  */
 int
 zfs_zaccess(znode_t *zp, int mode, int flags, boolean_t skipaclchk, cred_t *cr,
-    zuserns_t *mnt_ns)
+    zidmap_t *mnt_ns)
 {
 	uint32_t	working_mode;
 	int		error;
@@ -2776,7 +2775,7 @@ zfs_zaccess(znode_t *zp, int mode, int flags, boolean_t skipaclchk, cred_t *cr,
  */
 int
 zfs_zaccess_rwx(znode_t *zp, mode_t mode, int flags, cred_t *cr,
-    zuserns_t *mnt_ns)
+    zidmap_t *mnt_ns)
 {
 	return (zfs_zaccess(zp, zfs_unix_to_v4(mode >> 6), flags, B_FALSE, cr,
 	    mnt_ns));
@@ -2786,11 +2785,11 @@ zfs_zaccess_rwx(znode_t *zp, mode_t mode, int flags, cred_t *cr,
  * Access function for secpolicy_vnode_setattr
  */
 int
-zfs_zaccess_unix(znode_t *zp, mode_t mode, cred_t *cr)
+zfs_zaccess_unix(void *zp, int mode, cred_t *cr)
 {
 	int v4_mode = zfs_unix_to_v4(mode >> 6);
 
-	return (zfs_zaccess(zp, v4_mode, 0, B_FALSE, cr, kcred->user_ns));
+	return (zfs_zaccess(zp, v4_mode, 0, B_FALSE, cr, zfs_init_idmap));
 }
 
 /* See zfs_zaccess_delete() */
@@ -2867,7 +2866,7 @@ int zfs_write_implies_delete_child = 1;
  * zfs_write_implies_delete_child
  */
 int
-zfs_zaccess_delete(znode_t *dzp, znode_t *zp, cred_t *cr, zuserns_t *mnt_ns)
+zfs_zaccess_delete(znode_t *dzp, znode_t *zp, cred_t *cr, zidmap_t *mnt_ns)
 {
 	uint32_t wanted_dirperms;
 	uint32_t dzp_working_mode = 0;
@@ -2998,7 +2997,7 @@ zfs_zaccess_delete(znode_t *dzp, znode_t *zp, cred_t *cr, zuserns_t *mnt_ns)
 
 int
 zfs_zaccess_rename(znode_t *sdzp, znode_t *szp, znode_t *tdzp,
-    znode_t *tzp, cred_t *cr, zuserns_t *mnt_ns)
+    znode_t *tzp, cred_t *cr, zidmap_t *mnt_ns)
 {
 	int add_perm;
 	int error;

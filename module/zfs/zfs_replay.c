@@ -386,7 +386,7 @@ zfs_replay_create_acl(void *arg1, void *arg2, boolean_t byteswap)
 
 #if defined(__linux__)
 		error = zfs_create(dzp, name, &xva.xva_vattr,
-		    0, 0, &zp, kcred, vflg, &vsec, kcred->user_ns);
+		    0, 0, &zp, kcred, vflg, &vsec, zfs_init_idmap);
 #else
 		error = zfs_create(dzp, name, &xva.xva_vattr,
 		    0, 0, &zp, kcred, vflg, &vsec, NULL);
@@ -421,7 +421,7 @@ zfs_replay_create_acl(void *arg1, void *arg2, boolean_t byteswap)
 		}
 #if defined(__linux__)
 		error = zfs_mkdir(dzp, name, &xva.xva_vattr,
-		    &zp, kcred, vflg, &vsec, kcred->user_ns);
+		    &zp, kcred, vflg, &vsec, zfs_init_idmap);
 #else
 		error = zfs_mkdir(dzp, name, &xva.xva_vattr,
 		    &zp, kcred, vflg, &vsec, NULL);
@@ -536,7 +536,7 @@ zfs_replay_create(void *arg1, void *arg2, boolean_t byteswap)
 
 #if defined(__linux__)
 		error = zfs_create(dzp, name, &xva.xva_vattr,
-		    0, 0, &zp, kcred, vflg, NULL, kcred->user_ns);
+		    0, 0, &zp, kcred, vflg, NULL, zfs_init_idmap);
 #else
 		error = zfs_create(dzp, name, &xva.xva_vattr,
 		    0, 0, &zp, kcred, vflg, NULL, NULL);
@@ -558,7 +558,7 @@ zfs_replay_create(void *arg1, void *arg2, boolean_t byteswap)
 
 #if defined(__linux__)
 		error = zfs_mkdir(dzp, name, &xva.xva_vattr,
-		    &zp, kcred, vflg, NULL, kcred->user_ns);
+		    &zp, kcred, vflg, NULL, zfs_init_idmap);
 #else
 		error = zfs_mkdir(dzp, name, &xva.xva_vattr,
 		    &zp, kcred, vflg, NULL, NULL);
@@ -573,7 +573,7 @@ zfs_replay_create(void *arg1, void *arg2, boolean_t byteswap)
 		link = name + strlen(name) + 1;
 #if defined(__linux__)
 		error = zfs_symlink(dzp, name, &xva.xva_vattr,
-		    link, &zp, kcred, vflg, kcred->user_ns);
+		    link, &zp, kcred, vflg, zfs_init_idmap);
 #else
 		error = zfs_symlink(dzp, name, &xva.xva_vattr,
 		    link, &zp, kcred, vflg, NULL);
@@ -691,7 +691,7 @@ zfs_replay_rename(void *arg1, void *arg2, boolean_t byteswap)
 
 #if defined(__linux__)
 	error = zfs_rename(sdzp, sname, tdzp, tname, kcred, vflg,
-	    kcred->user_ns);
+	    zfs_init_idmap);
 #else
 	error = zfs_rename(sdzp, sname, tdzp, tname, kcred, vflg,
 	    NULL);
@@ -890,7 +890,7 @@ zfs_replay_setattr(void *arg1, void *arg2, boolean_t byteswap)
 	    lr->lr_uid, lr->lr_gid);
 
 #if defined(__linux__)
-	error = zfs_setattr(zp, vap, 0, kcred, kcred->user_ns);
+	error = zfs_setattr(zp, vap, 0, kcred, zfs_init_idmap);
 #else
 	error = zfs_setattr(zp, vap, 0, kcred, NULL);
 #endif
