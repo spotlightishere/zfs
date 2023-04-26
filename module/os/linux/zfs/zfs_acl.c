@@ -1888,7 +1888,8 @@ zfs_acl_ids_create(znode_t *dzp, int flag, vattr_t *vap, cred_t *cr,
 		acl_ids->z_mode |= S_ISGID;
 	} else {
 		if ((acl_ids->z_mode & S_ISGID) &&
-		    secpolicy_vnode_setids_setgids(cr, gid, mnt_ns) != 0) {
+		    secpolicy_vnode_setids_setgids(cr, gid, mnt_ns,
+		    zfs_i_user_ns(ZTOI(dzp))) != 0) {
 			acl_ids->z_mode &= ~S_ISGID;
 		}
 	}
@@ -1978,7 +1979,8 @@ zfs_getacl(znode_t *zp, vsecattr_t *vsecp, boolean_t skipaclchk, cred_t *cr)
 	if (mask == 0)
 		return (SET_ERROR(ENOSYS));
 
-	if ((error = zfs_zaccess(zp, ACE_READ_ACL, 0, skipaclchk, cr, NULL)))
+	if ((error = zfs_zaccess(zp, ACE_READ_ACL, 0, skipaclchk, cr,
+	    zfs_init_user_ns)))
 		return (error);
 
 	mutex_enter(&zp->z_acl_lock);
@@ -2137,7 +2139,8 @@ zfs_setacl(znode_t *zp, vsecattr_t *vsecp, boolean_t skipaclchk, cred_t *cr)
 	if (zp->z_pflags & ZFS_IMMUTABLE)
 		return (SET_ERROR(EPERM));
 
-	if ((error = zfs_zaccess(zp, ACE_WRITE_ACL, 0, skipaclchk, cr, NULL)))
+	if ((error = zfs_zaccess(zp, ACE_WRITE_ACL, 0, skipaclchk, cr,
+	    zfs_init_user_ns)))
 		return (error);
 
 	error = zfs_vsec_2_aclp(zfsvfs, ZTOI(zp)->i_mode, vsecp, cr, &fuidp,
@@ -2300,9 +2303,9 @@ zfs_zaccess_aces_check(znode_t *zp, uint32_t *working_mode,
 	uid_t		fowner;
 
 	if (mnt_ns) {
-		fowner = zfs_uid_into_mnt(mnt_ns,
+		fowner = zfs_uid_to_vfsuid(mnt_ns, zfs_i_user_ns(ZTOI(zp)),
 		    KUID_TO_SUID(ZTOI(zp)->i_uid));
-		gowner = zfs_gid_into_mnt(mnt_ns,
+		gowner = zfs_gid_to_vfsgid(mnt_ns, zfs_i_user_ns(ZTOI(zp)),
 		    KGID_TO_SGID(ZTOI(zp)->i_gid));
 	} else
 		zfs_fuid_map_ids(zp, cr, &fowner, &gowner);
@@ -2416,7 +2419,8 @@ zfs_has_access(znode_t *zp, cred_t *cr)
 {
 	uint32_t have = ACE_ALL_PERMS;
 
-	if (zfs_zaccess_aces_check(zp, &have, B_TRUE, cr, NULL) != 0) {
+	if (zfs_zaccess_aces_check(zp, &have, B_TRUE, cr,
+	    zfs_init_user_ns) != 0) {
 		uid_t owner;
 
 		owner = zfs_fuid_map_id(ZTOZSB(zp),
@@ -2608,7 +2612,8 @@ zfs_fastaccesschk_execute(znode_t *zdp, cred_t *cr)
 slow:
 	DTRACE_PROBE(zfs__fastpath__execute__access__miss);
 	ZFS_ENTER(ZTOZSB(zdp));
-	error = zfs_zaccess(zdp, ACE_EXECUTE, 0, B_FALSE, cr, NULL);
+	error = zfs_zaccess(zdp, ACE_EXECUTE, 0, B_FALSE, cr,
+	    zfs_init_user_ns);
 	ZFS_EXIT(ZTOZSB(zdp));
 	return (error);
 }
@@ -2660,7 +2665,8 @@ zfs_zaccess(znode_t *zp, int mode, int flags, boolean_t skipaclchk, cred_t *cr,
 		}
 	}
 
-	owner = zfs_uid_into_mnt(mnt_ns, KUID_TO_SUID(ZTOI(zp)->i_uid));
+	owner = zfs_uid_to_vfsuid(mnt_ns, zfs_i_user_ns(ZTOI(zp)),
+	    KUID_TO_SUID(ZTOI(zp)->i_uid));
 	owner = zfs_fuid_map_id(ZTOZSB(zp), owner, cr, ZFS_OWNER);
 
 	/*
@@ -2784,7 +2790,7 @@ zfs_zaccess_unix(znode_t *zp, mode_t mode, cred_t *cr)
 {
 	int v4_mode = zfs_unix_to_v4(mode >> 6);
 
-	return (zfs_zaccess(zp, v4_mode, 0, B_FALSE, cr, NULL));
+	return (zfs_zaccess(zp, v4_mode, 0, B_FALSE, cr, zfs_init_user_ns));
 }
 
 /* See zfs_zaccess_delete() */
