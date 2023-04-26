@@ -501,7 +501,7 @@ zfs_lookup(znode_t *zdp, char *nm, znode_t **zpp, int flags, cred_t *cr,
 		 */
 
 		if ((error = zfs_zaccess(*zpp, ACE_EXECUTE, 0,
-		    B_TRUE, cr, zfs_init_user_ns))) {
+		    B_TRUE, cr, kcred->user_ns))) {
 			zrele(*zpp);
 			*zpp = NULL;
 		}
@@ -520,7 +520,7 @@ zfs_lookup(znode_t *zdp, char *nm, znode_t **zpp, int flags, cred_t *cr,
 	 */
 
 	if ((error = zfs_zaccess(zdp, ACE_EXECUTE, 0, B_FALSE, cr,
-	    zfs_init_user_ns))) {
+	    kcred->user_ns))) {
 		ZFS_EXIT(zfsvfs);
 		return (error);
 	}
@@ -1002,7 +1002,7 @@ top:
 		return (error);
 	}
 
-	if ((error = zfs_zaccess_delete(dzp, zp, cr, zfs_init_user_ns))) {
+	if ((error = zfs_zaccess_delete(dzp, zp, cr, kcred->user_ns))) {
 		goto out;
 	}
 
@@ -1418,7 +1418,7 @@ top:
 		return (error);
 	}
 
-	if ((error = zfs_zaccess_delete(dzp, zp, cr, zfs_init_user_ns))) {
+	if ((error = zfs_zaccess_delete(dzp, zp, cr, kcred->user_ns))) {
 		goto out;
 	}
 
@@ -3373,7 +3373,7 @@ zfs_link(znode_t *tdzp, znode_t *szp, char *name, cred_t *cr,
 	}
 
 	if ((error = zfs_zaccess(tdzp, ACE_ADD_FILE, 0, B_FALSE, cr,
-	    zfs_init_user_ns))) {
+	    kcred->user_ns))) {
 		ZFS_EXIT(zfsvfs);
 		return (error);
 	}
@@ -3962,7 +3962,7 @@ zfs_space(znode_t *zp, int cmd, flock64_t *bfp, int flag,
 	 * operates directly on inodes, so we need to check access rights.
 	 */
 	if ((error = zfs_zaccess(zp, ACE_WRITE_DATA, 0, B_FALSE, cr,
-	    zfs_init_user_ns))) {
+	    kcred->user_ns))) {
 		ZFS_EXIT(zfsvfs);
 		return (error);
 	}

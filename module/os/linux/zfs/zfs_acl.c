@@ -1980,7 +1980,7 @@ zfs_getacl(znode_t *zp, vsecattr_t *vsecp, boolean_t skipaclchk, cred_t *cr)
 		return (SET_ERROR(ENOSYS));
 
 	if ((error = zfs_zaccess(zp, ACE_READ_ACL, 0, skipaclchk, cr,
-	    zfs_init_user_ns)))
+	    kcred->user_ns)))
 		return (error);
 
 	mutex_enter(&zp->z_acl_lock);
@@ -2140,7 +2140,7 @@ zfs_setacl(znode_t *zp, vsecattr_t *vsecp, boolean_t skipaclchk, cred_t *cr)
 		return (SET_ERROR(EPERM));
 
 	if ((error = zfs_zaccess(zp, ACE_WRITE_ACL, 0, skipaclchk, cr,
-	    zfs_init_user_ns)))
+	    kcred->user_ns)))
 		return (error);
 
 	error = zfs_vsec_2_aclp(zfsvfs, ZTOI(zp)->i_mode, vsecp, cr, &fuidp,
@@ -2420,7 +2420,7 @@ zfs_has_access(znode_t *zp, cred_t *cr)
 	uint32_t have = ACE_ALL_PERMS;
 
 	if (zfs_zaccess_aces_check(zp, &have, B_TRUE, cr,
-	    zfs_init_user_ns) != 0) {
+	    kcred->user_ns) != 0) {
 		uid_t owner;
 
 		owner = zfs_fuid_map_id(ZTOZSB(zp),
@@ -2613,7 +2613,7 @@ slow:
 	DTRACE_PROBE(zfs__fastpath__execute__access__miss);
 	ZFS_ENTER(ZTOZSB(zdp));
 	error = zfs_zaccess(zdp, ACE_EXECUTE, 0, B_FALSE, cr,
-	    zfs_init_user_ns);
+	    kcred->user_ns);
 	ZFS_EXIT(ZTOZSB(zdp));
 	return (error);
 }
@@ -2790,7 +2790,7 @@ zfs_zaccess_unix(znode_t *zp, mode_t mode, cred_t *cr)
 {
 	int v4_mode = zfs_unix_to_v4(mode >> 6);
 
-	return (zfs_zaccess(zp, v4_mode, 0, B_FALSE, cr, zfs_init_user_ns));
+	return (zfs_zaccess(zp, v4_mode, 0, B_FALSE, cr, kcred->user_ns));
 }
 
 /* See zfs_zaccess_delete() */
