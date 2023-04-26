@@ -166,9 +166,17 @@ zfs_access(znode_t *zp, int mode, int flag, cred_t *cr)
 
 	if (flag & V_ACE_MASK)
 		error = zfs_zaccess(zp, mode, flag, B_FALSE, cr,
+#if defined(__linux__)
 		    kcred->user_ns);
+#else
+		    NULL);
+#endif
 	else
+#if defined(__linux__)
 		error = zfs_zaccess_rwx(zp, mode, flag, cr, kcred->user_ns);
+#else
+		error = zfs_zaccess_rwx(zp, mode, flag, cr, NULL);
+#endif
 
 	ZFS_EXIT(zfsvfs);
 	return (error);
