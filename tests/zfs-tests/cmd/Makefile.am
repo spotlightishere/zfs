@@ -32,6 +32,7 @@ SUBDIRS = \
 
 if BUILD_LINUX
 SUBDIRS += \
+	idmap_util \
 	randfree_file \
 	read_dos_attributes \
 	user_ns_exec \

@@ -188,3 +188,8 @@ tags = ['functional', 'user_namespace']
 tests = ['groupspace_001_pos', 'groupspace_002_pos', 'groupspace_003_pos',
     'userquota_013_pos', 'userspace_003_pos']
 tags = ['functional', 'userquota']
+
+[tests/functional/idmap_mount:Linux]
+tests = ['idmap_mount_001', 'idmap_mount_002', 'idmap_mount_003',
+    'idmap_mount_004']
+tags = ['functional', 'idmap_mount']
